@@ -64,11 +64,15 @@ lepAna.loose_muon_dz      =  0.5
 
 jetAna.recalibrateJets = True
 #jetAna.calculateSeparateCorrections = True
-jetAna.calculateType1METCorrection = True
+jetAna         .calculateType1METCorrection = True
+jetAnaScaleUp  .calculateType1METCorrection = True
+jetAnaScaleDown.calculateType1METCorrection = True
 metAna.recalibrate = "type1"
+metAnaScaleUp.recalibrate = "type1"
+metAnaScaleDown.recalibrate = "type1"
 
-jetAna.mcGT     = "Summer15_25nsV6_MC"
-jetAna.dataGT   = "Summer15_25nsV6_DATA"
+##jetAna.mcGT     = "Summer15_25nsV6_MC"
+##jetAna.dataGT   = "Summer15_25nsV6_DATA"
 
 ##########################################################
 ######################Isolation###########################
@@ -93,7 +97,7 @@ if isolation == "ptRel":
         minLeptons = 2,
         maxLeptons = 999,
         )
-    susyCoreSequence.insert(susyCoreSequence.index(jetAna)+3, ttHLepSkim2)
+    susyCoreSequence.insert(susyCoreSequence.index(jetAna)+1, ttHLepSkim2)
 elif isolation == "miniIso": 
     lepAna.loose_muon_isoCut     = lambda muon : muon.miniRelIso < 0.4
     lepAna.loose_electron_isoCut = lambda elec : elec.miniRelIso < 0.4
@@ -173,7 +177,8 @@ susyCoreSequence.insert(susyCoreSequence.index(ttHFatJetAna)+1, ttHDecluster)
 ##########################################################
 #############TreeProducer SusyMultilepton#################
 ##########################################################
-from CMGTools.TTHAnalysis.analyzers.treeProducerSusyMultilepton import * 
+#from CMGTools.TTHAnalysis.analyzers.treeProducerSusyMultilepton import * 
+from CMGTools.TTHAnalysis.analyzers.treeProducerSusyEdge import * 
 ## Tree Producer
 treeProducer = cfg.Analyzer(
      AutoFillTreeProducer, name='treeProducerSusyEdge',
@@ -181,9 +186,9 @@ treeProducer = cfg.Analyzer(
      saveTLorentzVectors = False,  # can set to True to get also the TLorentzVectors, but trees will be bigger
      defaultFloatType = 'F', # use Float_t for floating point
      PDFWeights = PDFWeights,
-     globalVariables = susyMultilepton_globalVariables,
-     globalObjects = susyMultilepton_globalObjects,
-     collections = susyMultilepton_collections,
+     globalVariables = susyJZBEdge_globalVariables,
+     globalObjects   = susyJZBEdge_globalObjects,
+     collections     = susyJZBEdge_collections,
 )
 
 
@@ -376,7 +381,7 @@ if runData:
                 print "Will process %s (%d files)" % (comp.name, len(comp.files))
 #                print "\ttrigger sel %s, veto %s" % (triggers, vetos)
                 comp.splitFactor = len(comp.files)/5
-                comp.fineSplitFactor = 1
+                comp.fineSplitFactor = 10
                 selectedComponents.append( comp )
             #vetos += triggers
     if json is None:
@@ -391,9 +396,12 @@ if runSMS:
     ## sbottomsbottom selectedComponents = [SMS_T6bbllslepton_mSbottom400To575_mLSP150To550,
     ## sbottomsbottom                       SMS_T6bbllslepton_mSbottom600To775_mLSP150To725,
     ## sbottomsbottom                       SMS_T6bbllslepton_mSbottom800To950_mLSP150To900]
-    jetAna.mcGT = "MCRUN2_74_V9_FASTSIM_291115"
-    jetAnaScaleUp.mcGT = "MCRUN2_74_V9_FASTSIM_291115"
-    jetAnaScaleDown.mcGT = "MCRUN2_74_V9_FASTSIM_291115"
+    ## fastsim GT jetAna.mcGT          = "MCRUN2_74_V9_FASTSIM_291115"
+    ## fastsim GT jetAnaScaleUp.mcGT   = "MCRUN2_74_V9_FASTSIM_291115"
+    ## fastsim GT jetAnaScaleDown.mcGT = "MCRUN2_74_V9_FASTSIM_291115"
+    jetAna.mcGT          = "MCRUN2_74_V9"
+    jetAnaScaleUp.mcGT   = "MCRUN2_74_V9"
+    jetAnaScaleDown.mcGT = "MCRUN2_74_V9"
     jetAna.applyL2L3Residual = False
     jetAnaScaleUp.applyL2L3Residual = False
     jetAnaScaleDown.applyL2L3Residual = False
@@ -419,8 +427,9 @@ test = getHeppyOption('test')
 if test == 'susyTest':
     print 'I\'m in the synch test thing here!!'
     comp = selectedComponents[0]
+    comp.splitFactor = 1
     selectedComponents = [comp]
-    comp.files = comp.files[:1]
+    comp.files = comp.files[:2]
 if test == 'synch':
     print 'I\'m in the synch test thing here!!'
     comp = TTLep_pow
