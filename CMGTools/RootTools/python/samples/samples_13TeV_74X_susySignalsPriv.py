@@ -133,6 +133,13 @@ T6ttWW = [ T6ttWW_mSbot600_mCh425_mChi50, T6ttWW_mSbot650_mCh150_mChi50 ]
 T6qqWW = [ ]
 
 
+## EWKino production. relevant samples for OS/edge
+TChaCha_slep_mCha600_mLSP50  = kreator.makeMCComponentFromEOS('TChaCha_slep_mCha600_mLSP50' , '/TChiChiSlepSneu_mCh600_mChi50' , '/store/user/cheidegg/signals/miniaod/%s', ".*root", 1.) 
+TChaCha_slep_mCha350_mLSP200 = kreator.makeMCComponentFromEOS('TChaCha_slep_mCha350_mLSP200', '/TChiChiSlepSneu_mCh350_mChi200', '/store/user/cheidegg/signals/miniaod/%s', ".*root", 1.) 
+#not good TChaNeu_WZ_mCha350_mLSP20    = kreator.makeMCComponentFromEOS('TChaNeu_WZ_mCha350_mLSP20'   , '/TChiWZ_mCh350_mChi20'          , '/store/user/cheidegg/signals/miniaod/%s',".*root", 1.) 
+#not good TChaNeu_WZ_mCha350_mLSP100   = kreator.makeMCComponentFromEOS('TChaNeu_WZ_mCha350_mLSP100'  , '/TChiWZ_mCh350_mChi100'         , '/store/user/cheidegg/signals/miniaod/%s',".*root", 1.) 
+#not good TChaNeu_WZ_mCha200_mLSP100   = kreator.makeMCComponentFromEOS('TChaNeu_WZ_mCha200_mLSP100'  , '/TChiWZ_mCh200_mChi100'         , '/store/user/cheidegg/signals/miniaod/%s',".*root", 1.) 
+
 ## mcSamplesPriv
 ## ------------------------------------------------------
 mcSamplesPriv = SqGltttt + T1ttbb + T1ttbbWW + T1tttt + T2tt + T2ttDeg + T5qqqqVV + T5qqqqVVDeg + T5ttttDeg + T6ttWW + T6qqWW
