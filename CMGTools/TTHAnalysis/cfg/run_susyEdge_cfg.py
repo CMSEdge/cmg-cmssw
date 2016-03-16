@@ -34,7 +34,7 @@ ttHLepSkim.maxLeptons = 999
 #ttHLepSkim.idCut  = ""
 #ttHLepSkim.ptCuts = []
 
-runSMS = False
+runSMS = True
 
 ##########################################################
 ##################Lepton Analyzier########################
@@ -93,7 +93,7 @@ if isolation == "ptRel":
         minLeptons = 2,
         maxLeptons = 999,
         )
-    susyCoreSequence.insert(susyCoreSequence.index(jetAna)+1, ttHLepSkim2)
+    susyCoreSequence.insert(susyCoreSequence.index(jetAna)+3, ttHLepSkim2)
 elif isolation == "miniIso": 
     lepAna.loose_muon_isoCut     = lambda muon : muon.miniRelIso < 0.4
     lepAna.loose_electron_isoCut = lambda elec : elec.miniRelIso < 0.4
@@ -272,6 +272,7 @@ if runSMS:
 from CMGTools.RootTools.samples.samples_13TeV_RunIISpring15MiniAODv2 import *
 from CMGTools.RootTools.samples.samples_13TeV_DATA2015 import *
 from CMGTools.RootTools.samples.samples_13TeV_signals import *
+from CMGTools.RootTools.samples.samples_13TeV_74X_susySignalsPriv import *
 
 
 ##########################################################
@@ -382,6 +383,14 @@ if runData:
         susyCoreSequence.remove(jsonAna)
 
 if runSMS:
+    ## ewino samples TChaCha_slep_mCha600_mLSP50
+    ## ewino samples TChaCha_slep_mCha350_mLSP200
+    ## ewino samples TChaNeu_WZ_mCha350_mLSP20
+    ## ewino samples TChaNeu_WZ_mCha350_mLSP100
+    ## ewino samples TChaNeu_WZ_mCha200_mLSP100
+    ## sbottomsbottom selectedComponents = [SMS_T6bbllslepton_mSbottom400To575_mLSP150To550,
+    ## sbottomsbottom                       SMS_T6bbllslepton_mSbottom600To775_mLSP150To725,
+    ## sbottomsbottom                       SMS_T6bbllslepton_mSbottom800To950_mLSP150To900]
     jetAna.mcGT = "MCRUN2_74_V9_FASTSIM_291115"
     jetAnaScaleUp.mcGT = "MCRUN2_74_V9_FASTSIM_291115"
     jetAnaScaleDown.mcGT = "MCRUN2_74_V9_FASTSIM_291115"
@@ -390,33 +399,41 @@ if runSMS:
     jetAnaScaleDown.applyL2L3Residual = False
     useAAA = False ## accesses only files on EOS or at CERN
 
-    print 'I\'m in the sms test thing here!!'
-    selectedComponents = [SMS_T6bbllslepton_mSbottom_400To550_mLSP_200To500_miniAODv2]#, SMS_T6bbllslepton_mSbottom_600To900_mLSP_200To800_miniAODv2]
-    comp.files = comp.files[:1]
-    #for comp in selectedComponents:
-    #    comp.splitFactor = 500
+    ## old scan broken selectedComponents = [SMS_T6bbllslepton_mSbottom_400To550_mLSP_200To500_miniAODv2]#, SMS_T6bbllslepton_mSbottom_600To900_mLSP_200To800_miniAODv2]
+    selectedComponents = [TChaCha_slep_mCha600_mLSP50,
+                          TChaCha_slep_mCha350_mLSP200]
+                          #TChaNeu_WZ_mCha350_mLSP20,
+                          #TChaNeu_WZ_mCha350_mLSP100,
+                          #TChaNeu_WZ_mCha200_mLSP100]
+    #comp.files = comp.files[:1]
+    for comp in selectedComponents:
+        comp.splitFactor = 30
     #    #comp.finesplitFactor = 4
-    ##comp.splitFactor = 500
-    ##comp.fineSplitFactor = 4
+    #comp.splitFactor = 300
+    #comp.fineSplitFactor = 4
 
 from PhysicsTools.HeppyCore.framework.heppy_loop import getHeppyOption
 test = getHeppyOption('test')
 #test = '74X-MC'
 
-test= '74X-MC'
-if test == 'synch':
+if test == 'susyTest':
     print 'I\'m in the synch test thing here!!'
-    #comp = TTLep_pow
-    #selectedComponents = [comp]
     comp = selectedComponents[0]
     selectedComponents = [comp]
+    comp.files = comp.files[:1]
+if test == 'synch':
+    print 'I\'m in the synch test thing here!!'
+    comp = TTLep_pow
+    selectedComponents = [comp]
+    #comp = selectedComponents[0]
     #comp.files = comp.files[:1]
-    comp.files = comp.files[:1]#[ '/afs/cern.ch/work/m/mdunser/public/synchFiles/004613BA-C46D-E511-9EB6-001E67248732.root' ]
+    comp.files = ['root://eoscms//eos/cms/store/mc/RunIISpring15MiniAODv2/TTTo2L2Nu_13TeV-powheg/MINIAODSIM/74X_mcRun2_asymptotic_v2-v1/10000/004613BA-C46D-E511-9EB6-001E67248732.root']
+    #comp.files = comp.files[:1]#[ '/afs/cern.ch/work/m/mdunser/public/synchFiles/004613BA-C46D-E511-9EB6-001E67248732.root' ]
     #comp.finesplitFactor = 10
     #comp.finesplitFactor = 4
 elif test == '74X-MC':
     #what = getHeppyOption("sample")
-    what = 'TT'
+    what = 'TTLep'
     if what == "TTLep":
         selectedComponents = [ TTLep_pow ]
         comp = selectedComponents[0]
@@ -473,7 +490,6 @@ elif test == "express":
     from PhysicsTools.Heppy.utils.cmsswPreprocessor import CmsswPreprocessor
     preprocessor = CmsswPreprocessor("miniAOD-data_PAT.py")
 
->>>>>>> cms-edgeZ/towards-CMSSW_7_4_16
 
 
 ##########################################################
@@ -497,7 +513,7 @@ outputService.append(output_service)
 from PhysicsTools.HeppyCore.framework.eventsfwlite import Events
 from CMGTools.TTHAnalysis.tools.EOSEventsWithDownload import EOSEventsWithDownload
 event_class = EOSEventsWithDownload
-EOSEventsWithDownload.aggressive = 2 # always fetch if running on Wigner
+EOSEventsWithDownload.aggressive = 1#2 # always fetch if running on Wigner
 
 if getHeppyOption("nofetch"):
     event_class = Events 
