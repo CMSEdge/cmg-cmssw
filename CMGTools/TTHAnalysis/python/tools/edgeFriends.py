@@ -9,6 +9,11 @@ ROOT.gSystem.Load("libDataFormatsFWLite.so")
 ROOT.AutoLibraryLoader.enable()
 print 'done loading MT2 stuff.'
 
+#ROOT.gSystem.Load('libCondFormatsBTagObjects') 
+ROOT.gSystem.Load("pluginRecoBTagPerformanceDBplugins.so")
+
+#ROOT.gROOT.ProcessLine('.L /afs/cern.ch/work/p/pablom/private/run/pruebaestupida/CMSSW_7_4_12/src/CMGTools/TTHAnalysis/python/tools/BTagCalibrationStandalone.cc+') 
+
 import copy
 import math
 class edgeFriends:
@@ -27,6 +32,30 @@ class edgeFriends:
         self.fourthBadEESuperCrystalFile = open("/afs/cern.ch/user/p/pablom/public/Filters_27_01_2016/ecalscn1043093.txt","r")
         self.badResolutionTrackTaggerFile = open("/afs/cern.ch/user/p/pablom/public/Filters_27_01_2016/badResolutionTrack.txt","r")
         self.badMuonTrackTaggerFile = open("/afs/cern.ch/user/p/pablom/public/Filters_27_01_2016/muonBadTrack.txt","r")
+
+        ##B-tagging stuff
+        self.calib = ROOT.BTagCalibration("csvv2", "/afs/cern.ch/user/p/pablom/public/CSVv2.csv")
+        self.reader_heavy    = ROOT.BTagCalibrationReader(self.calib, 1, "mujets", "central")
+        self.reader_heavy_UP = ROOT.BTagCalibrationReader(self.calib, 1, "mujets", "up")
+        self.reader_heavy_DN = ROOT.BTagCalibrationReader(self.calib, 1, "mujets", "down")
+        self.reader_light    = ROOT.BTagCalibrationReader(self.calib, 1, "comb"  , "central")
+        self.reader_light_UP = ROOT.BTagCalibrationReader(self.calib, 1, "comb"  , "up")
+        self.reader_light_DN = ROOT.BTagCalibrationReader(self.calib, 1, "comb"  , "down")
+
+        self.calibFASTSIM = ROOT.BTagCalibration("csvv2", "/afs/cern.ch/user/p/pablom/public/CSV_13TEV_Combined_20_11_2015.csv")
+        self.reader_heavyFASTSIM    = ROOT.BTagCalibrationReader(self.calibFASTSIM, 1, "fastsim", "central")
+        self.reader_heavy_UPFASTSIM = ROOT.BTagCalibrationReader(self.calibFASTSIM, 1, "fastsim", "up")
+        self.reader_heavy_DNFASTSIM = ROOT.BTagCalibrationReader(self.calibFASTSIM, 1, "fastsim", "down")
+        self.reader_lightFASTSIM    = ROOT.BTagCalibrationReader(self.calibFASTSIM, 1, "fastsim"  , "central")
+        self.reader_light_UPFASTSIM = ROOT.BTagCalibrationReader(self.calibFASTSIM, 1, "fastsim"  , "up")
+        self.reader_light_DNFASTSIM = ROOT.BTagCalibrationReader(self.calibFASTSIM, 1, "fastsim"  , "down")
+
+        self.f_btag_eff      = ROOT.TFile("/afs/cern.ch/user/p/pablom/public/btageff__ttbar_powheg_pythia8_25ns.root")
+        self.h_btag_eff_b    = copy.deepcopy(self.f_btag_eff.Get("h2_BTaggingEff_csv_med_Eff_b"   ))
+        self.h_btag_eff_c    = copy.deepcopy(self.f_btag_eff.Get("h2_BTaggingEff_csv_med_Eff_c"   ))
+        self.h_btag_eff_udsg = copy.deepcopy(self.f_btag_eff.Get("h2_BTaggingEff_csv_med_Eff_udsg"))
+        self.f_btag_eff.Close()
+ 
 
 	if not self.isMC:
             self.beamHaloSet = set()
@@ -152,6 +181,11 @@ class edgeFriends:
                     ("lh_ana_mlb_mc"+label  , "F") , 
                     ("lh_ana_ldr_mc"+label  , "F") ,
                     ("lh_ana_a3d_mc"+label  , "F") ,
+                    ("weight_btagsf"+label  , "F") ,
+                    ("weight_btagsf_heavy_UP"+label, "F") ,
+                    ("weight_btagsf_heavy_DN"+label, "F") ,
+                    ("weight_btagsf_light_UP"+label, "F") ,
+                    ("weight_btagsf_light_DN"+label, "F") ,
 #                    ("cum_zpt_data"+label, "F") , 
 #                    ("cum_met_data"+label, "F") , 
 #                    ("cum_mlb_data"+label, "F") ,
@@ -354,8 +388,10 @@ class edgeFriends:
         
         ret["nJet35"] = 0; ret["htJet35j"] = 0; ret["nBJetLoose35"] = 0; ret["nBJetMedium35"] = 0
         totalRecoil = ROOT.TLorentzVector()
+        theJets = []
         for j in jetsc+jetsd:
             if not j._clean: continue
+            theJets.append(j)
             ret["nJet35"] += 1; ret["htJet35j"] += j.pt; 
             if j.btagCSV>0.423: ret["nBJetLoose35"] += 1
             if j.btagCSV>0.890: ret["nBJetMedium35"] += 1
@@ -364,6 +400,14 @@ class edgeFriends:
             totalRecoil = totalRecoil + jet
           ## compute mlb for the two lepton  
         ret['lepsJZB_recoil'] = totalRecoil.Pt() - ret['lepsZPt']
+         
+        [wtbtag, wtbtagUp_heavy, wtbtagUp_light, wtbtagDown_heavy, wtbtagDown_light] = self.getWeightBtag(theJets)
+
+        ret['weight_btagsf'] = wtbtag
+        ret['weight_btagsf_heavy_UP'] = wtbtagUp_heavy
+        ret['weight_btagsf_heavy_DN'] = wtbtagDown_heavy
+        ret['weight_btagsf_light_UP'] = wtbtagUp_light
+        ret['weight_btagsf_light_DN'] = wtbtagDown_light
 	
         jet = ROOT.TLorentzVector()
         min_mlb = 1e6
@@ -546,77 +590,108 @@ class edgeFriends:
 
         return (100*etaid + 10*nb + mllid)
 
-##  ## ===============================================================
-##  ## ===== bunch of b-tagging stuff. ===============================
-##  ## ===============================================================
-##      def init_btagMediumScaleFactor(self,CSVbtagFileName,EFFbtagFileName,CSVbtagFileNameFastSim):
-##          self.do_btagSF = True
-##          self.btagMediumCalib = ROOT.BTagCalibration("CSVv2", CSVbtagFileName)
-##          if CSVbtagFileNameFastSim: self.btagMediumCalibFastSim = ROOT.BTagCalibration("CSV_FastSim", CSVbtagFileNameFastSim)
-##          self.btagMediumReader=[]
-##          self.btagMediumReader.append(ROOT.BTagCalibrationReader(self.btagMediumCalib, 1, "mujets", "down"))
-##          self.btagMediumReader.append(ROOT.BTagCalibrationReader(self.btagMediumCalib, 1, "mujets", "central"))
-##          self.btagMediumReader.append(ROOT.BTagCalibrationReader(self.btagMediumCalib, 1, "mujets", "up"))
-##          if CSVbtagFileNameFastSim:
-##              self.btagMediumReaderFastSim=[]
-##              self.btagMediumReaderFastSim.append(ROOT.BTagCalibrationReader(self.btagMediumCalibFastSim, 1, "fastsim", "down"))
-##              self.btagMediumReaderFastSim.append(ROOT.BTagCalibrationReader(self.btagMediumCalibFastSim, 1, "fastsim", "central"))
-##              self.btagMediumReaderFastSim.append(ROOT.BTagCalibrationReader(self.btagMediumCalibFastSim, 1, "fastsim", "up"))
-##          self.btagMediumReaderLight=[]
-##          self.btagMediumReaderLight.append(ROOT.BTagCalibrationReader(self.btagMediumCalib, 1, "comb", "down"))
-##          self.btagMediumReaderLight.append(ROOT.BTagCalibrationReader(self.btagMediumCalib, 1, "comb", "central"))
-##          self.btagMediumReaderLight.append(ROOT.BTagCalibrationReader(self.btagMediumCalib, 1, "comb", "up"))
-##          if CSVbtagFileNameFastSim:
-##              self.btagMediumReaderLightFastSim=[]
-##              self.btagMediumReaderLightFastSim.append(ROOT.BTagCalibrationReader(self.btagMediumCalibFastSim, 1, "fastsim", "down"))
-##              self.btagMediumReaderLightFastSim.append(ROOT.BTagCalibrationReader(self.btagMediumCalibFastSim, 1, "fastsim", "central"))
-##              self.btagMediumReaderLightFastSim.append(ROOT.BTagCalibrationReader(self.btagMediumCalibFastSim, 1, "fastsim", "up"))
-##          self.btagEffFile = ROOT.TFile(EFFbtagFileName,"read")
-##          self.btagEffHistos = (self.btagEffFile.Get("h2_BTaggingEff_csv_med_Eff_b"),self.btagEffFile.Get("h2_BTaggingEff_csv_med_Eff_c"),self.btagEffFile.Get("h2_BTaggingEff_csv_med_Eff_udsg"))
-##      def read_btagMediumScaleFactor(self,readersBC,readersLight,jet,flavor,shift=0,croplowpt=0,crophighpt=1e6):
-##          if abs(shift)>2: raise RuntimeError, 'Unsupported b-tag shift value was passed: %d'%shift
-##          # agreed upon: include jets in under/overflow in last bins
-##          pt = min(max(jet.pt,croplowpt+0.001),crophighpt-0.001)
-##          eta = min(max(jet.eta,-2.399),2.399)
-##          if abs(flavor)==5: fcode = 0
-##          elif abs(flavor)==4: fcode = 1
-##          else: fcode = 2
-##          res = 0
-##          if fcode<2: # correlate systs of B and C
-##              _s = shift if abs(shift)<2 else 0
-##              res = readersBC[_s+1].eval(fcode,eta,pt)
-##          else:
-##              _s = shift/2 if abs(shift)!=1 else 0
-##              res = readersLight[_s+1].eval(fcode,eta,pt)
-##          if res==0: raise RuntimeError,'Btag SF returned zero, something is not correct: flavor=%d, eta=%f, pt=%f'%(flavor,jet.eta,jet.pt)
-##          return res
-##      def read_btagMediumEfficiency(self,jet,flavor):
-##          if abs(flavor)==5: fcode = 0
-##          elif abs(flavor)==4: fcode = 1
-##          else: fcode = 2
-##          h = self.btagEffHistos[fcode]
-##          ptbin = max(1,min(h.GetNbinsX(),h.GetXaxis().FindBin(jet.pt)))
-##          etabin = max(1,min(h.GetNbinsY(),h.GetYaxis().FindBin(abs(jet.eta))))
-##          return h.GetBinContent(ptbin,etabin)
-##  
-##      def btagMediumScaleFactor(self,event,bjets,alljets,shift=0):
-##          if event.isData or (not self.do_btagSF): 
-##              return 1.0
-##          pmc = 1.0; pdata = 1.0
-##          for j in alljets:
-##              sf = self.read_btagMediumScaleFactor(self.btagMediumReader,self.btagMediumReaderLight,j,j.mcFlavour,shift if abs(shift)<3 else 0,croplowpt=30,crophighpt=670)
-##              if self.isFastSim: 
-##                  sf = sf * self.read_btagMediumScaleFactor(self.btagMediumReaderFastSim,self.btagMediumReaderLightFastSim,j,j.mcFlavour,0 if abs(shift)<3 else int(copysign(abs(shift)-2,shift)),croplowpt=20,crophighpt=800)
-##              eff = self.read_btagMediumEfficiency(j,j.mcFlavour)
-##              if j in bjets:
-##                  pmc   = pmc * eff
-##                  pdata = pdata * eff * sf
-##              else:
-##                  pmc = pmc * (1-eff)
-##                  pdata = pdata * (1-eff*sf)
-##          res = pdata/pmc if pmc!=0 else 1.
-##          return res
+   
+    #############Pablin
+    def get_SF_btag(self, pt, eta, mcFlavour):
+
+       flavour = 2
+       if abs(mcFlavour) == 5: flavour = 0
+       elif abs(mcFlavour)==4: flavour = 1
+  
+       pt_cutoff  = max(30. , min(669., pt))
+       eta_cutoff = min(2.39, abs(eta))
+
+       if flavour == 2:
+          SF = self.reader_light.eval(flavour,eta_cutoff, pt_cutoff);
+          SFup = self.reader_light_UP.eval(flavour,eta_cutoff, pt_cutoff);
+          SFdown = self.reader_light_DN.eval(flavour,eta_cutoff, pt_cutoff);
+          SFcorr = self.reader_lightFASTSIM.eval(flavour,eta_cutoff, pt_cutoff);
+          SFupcorr = self.reader_light_UPFASTSIM.eval(flavour,eta_cutoff, pt_cutoff);
+          SFdowncorr = self.reader_light_DNFASTSIM.eval(flavour,eta_cutoff, pt_cutoff);
+       else:
+          SF = self.reader_heavy.eval(flavour,eta_cutoff, pt_cutoff)
+          SFup  = self.reader_heavy_UP.eval(flavour,eta_cutoff, pt_cutoff)
+          SFdown = self.reader_heavy_DN.eval(flavour,eta_cutoff, pt_cutoff)
+          SFcorr = self.reader_heavyFASTSIM.eval(flavour,eta_cutoff, pt_cutoff)
+          SFupcorr  = self.reader_heavy_UPFASTSIM.eval(flavour,eta_cutoff, pt_cutoff)
+          SFdowncorr = self.reader_heavy_DNFASTSIM.eval(flavour,eta_cutoff, pt_cutoff)
+
+       return [SF*SFcorr, SFup*SFupcorr, SFdown*SFdowncorr]
+
+
+    def getBtagEffFromFile(self, pt, eta, mcFlavour):
     
+       pt_cutoff = max(20.,min(399., pt))
+       if (abs(mcFlavour) == 5): 
+           h = self.h_btag_eff_b
+           #use pt bins up to 600 GeV for b
+           pt_cutoff = max(20.,min(599., pt))
+       elif (abs(mcFlavour) == 4):
+           h = self.h_btag_eff_c
+       else:
+           h = self.h_btag_eff_udsg
+    
+       binx = h.GetXaxis().FindBin(pt_cutoff)
+       biny = h.GetYaxis().FindBin(fabs(eta))
+
+       return h.GetBinContent(binx,biny)
+
+
+    def getWeightBtag(self, jets):
+
+        mcTag = 1.
+        mcNoTag = 1.
+        dataTag = 1.
+        dataNoTag = 1.
+        errHup   = 0
+        errHdown = 0
+        errLup   = 0
+        errLdown = 0
+    
+        for jet in jets:
+        
+            csv = jet.btagCSV
+            mcFlavor = jet.hadronFlavour
+            eta = jet.eta
+            pt = jet.pt
+
+            if(eta > 2.5): continue
+            if(pt < 20): continue
+            eff = self.getBtagEffFromFile(pt, eta, mcFlavor)
+
+            istag = csv > 0.890 and eta < 2.5 and pt > 20
+            SF = self.get_SF_btag(pt, eta, mcFlavor)
+            if(istag):
+                 mcTag = mcTag * eff
+                 dataTag = dataTag * eff * SF[0]
+                 if(mcFlavor == 5 or mcFlavor ==4):
+	             errHup  = errHup + (SF[1] - SF[0]  )/SF[0]
+	             errHdown = errHdown = (SF[0] - SF[2])/SF[0]
+                 else: 
+	             errLup = errLup + (SF[1] - SF[0])/SF[0]
+                     errLdown = errLdown + (SF[0] - SF[2])/SF[0]
+            else: 
+                 mcNoTag = mcNoTag * (1 - eff)
+                 dataNoTag = dataNoTag * (1 - eff*SF[0])
+                 if mcFlavor==5 or mcFlavor==4:
+	             errHup = errHup * -eff*(SF[1] - SF[0]  )/(1-eff*SF[0])
+                     errHdown = errHdown * -eff*(SF[0] - SF[2])/(1-eff*SF[0])	
+                 else:
+	             errLup = errLup * -eff*(SF[1] - SF[0]  )/(1-eff*SF[0])
+	             errLdown = errLdown * -eff*(SF[0] - SF[2])/(1-eff*SF[0]);	
+
+
+        wtbtag = (dataNoTag * dataTag ) / ( mcNoTag * mcTag )
+        wtbtagUp_heavy   = wtbtag*( 1 + errHup   )
+        wtbtagUp_light   = wtbtag*( 1 + errLup   )
+        wtbtagDown_heavy = wtbtag*( 1 - errHdown )
+        wtbtagDown_light = wtbtag*( 1 - errLdown )
+
+        return [wtbtag, wtbtagUp_heavy, wtbtagUp_light, wtbtagDown_heavy, wtbtagDown_light]
+
+
+
+ 
 def _susyEdge(lep):
         if lep.pt <= 10.: return False
         if abs(lep.eta) > 2.4: return False
