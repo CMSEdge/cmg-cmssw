@@ -17,22 +17,33 @@ ROOT.gSystem.Load("pluginRecoBTagPerformanceDBplugins.so")
 import copy
 import math
 class edgeFriends:
-    def __init__(self,label,tightLeptonSel,cleanJet,isMC=False):
+    def __init__(self,label,tightLeptonSel,cleanJet):
         self.label = "" if (label in ["",None]) else ("_"+label)
         self.tightLeptonSel = tightLeptonSel
         self.cleanJet = cleanJet
-        self.isMC = isMC
+        #self.isMC = isMC
         ## with nvtx self.puFile = open("/afs/cern.ch/work/m/mdunser/public/puWeighting/puWeightsVinceLumi1p28.txt","r")
         self.puFile = open("/afs/cern.ch/work/m/mdunser/public/puWeighting/puWeightsOfficialPrescription.txt","r")
         self.pu_dict = eval(self.puFile.read())
         self.puFile.close()
-        ## for 1.3 fb-1 self.beamHaloListFile = open("/afs/cern.ch/work/m/mdunser/public/beamHalo/beamHaloEvents_DoubleLep_JetHT_HTMHT.txt","r")
-        ## nov14 list self.beamHaloListFile = open("/afs/cern.ch/work/m/mdunser/public/beamHalo/fullDataset/allFullData.txt","r")
+        ## filter things
+        ## =================
         self.beamHaloListFile = open("/afs/cern.ch/user/p/pablom/public/Filters_27_01_2016/csc2015.txt", "r")
         self.fourthBadEESuperCrystalFile = open("/afs/cern.ch/user/p/pablom/public/Filters_27_01_2016/ecalscn1043093.txt","r")
         self.badResolutionTrackTaggerFile = open("/afs/cern.ch/user/p/pablom/public/Filters_27_01_2016/badResolutionTrack.txt","r")
         self.badMuonTrackTaggerFile = open("/afs/cern.ch/user/p/pablom/public/Filters_27_01_2016/muonBadTrack.txt","r")
-
+        self.beamHaloSet = set()
+        self.fourthBadEESuperCrystalSet = set()
+        self.badResolutionTrackTaggerSet = set()
+        self.badMuonTrackTaggerSet = set()
+        for i in list(self.beamHaloListFile):
+            self.beamHaloSet.add(i.rstrip('\n'))
+        for i in list(self.fourthBadEESuperCrystalFile):
+            self.fourthBadEESuperCrystalSet.add(i.rstrip('\n'))
+        for i in list(self.badResolutionTrackTaggerFile):
+            self.badResolutionTrackTaggerSet.add(i.rstrip('\n'))
+        for i in list(self.badMuonTrackTaggerFile):
+            self.badMuonTrackTaggerSet.add(i.rstrip('\n'))
         ##B-tagging stuff
         self.calib = ROOT.BTagCalibration("csvv2", "/afs/cern.ch/user/p/pablom/public/CSVv2.csv")
         self.reader_heavy    = ROOT.BTagCalibrationReader(self.calib, 1, "mujets", "central")
@@ -55,26 +66,13 @@ class edgeFriends:
         self.h_btag_eff_c    = copy.deepcopy(self.f_btag_eff.Get("h2_BTaggingEff_csv_med_Eff_c"   ))
         self.h_btag_eff_udsg = copy.deepcopy(self.f_btag_eff.Get("h2_BTaggingEff_csv_med_Eff_udsg"))
         self.f_btag_eff.Close()
- 
-
-	if not self.isMC:
-            self.beamHaloSet = set()
-            self.fourthBadEESuperCrystalSet = set()
-            self.badResolutionTrackTaggerSet = set()
-            self.badMuonTrackTaggerSet = set()
-            for i in list(self.beamHaloListFile):
-                self.beamHaloSet.add(i.rstrip('\n'))
-            for i in list(self.fourthBadEESuperCrystalFile):
-                self.fourthBadEESuperCrystalSet.add(i.rstrip('\n'))
-            for i in list(self.badResolutionTrackTaggerFile):
-                self.badResolutionTrackTaggerSet.add(i.rstrip('\n'))
-            for i in list(self.badMuonTrackTaggerFile):
-                self.badMuonTrackTaggerSet.add(i.rstrip('\n'))
         self.beamHaloListFile.close()
         self.fourthBadEESuperCrystalFile.close()
         self.badResolutionTrackTaggerFile.close()
         self.badMuonTrackTaggerFile.close()
-        ## load the pdf file for the likelihood
+        ## =================
+        ## pdf things
+        ## =================
         self.lh_file  = ROOT.TFile('/afs/cern.ch/work/m/mdunser/public/pdfsForLikelihood/pdfs_version20_fitResultsAndFunctions.root')
         # these are the kernel pdfs
         self.h_lh_zpt_data = copy.deepcopy(self.lh_file.Get('em_data_pdf_histo_zpt_ds_cuts_of_sr_met150')); self.h_lh_zpt_data.Scale(1./self.h_lh_zpt_data.Integral())
@@ -92,7 +90,7 @@ class edgeFriends:
         # these are the analytical pdfs
         self.an_file = ROOT.TFile("/afs/cern.ch/work/m/mdunser/public/pdfsForLikelihood/pdfs_version22_savingTheWorkspace.root")
         self.wspace = copy.deepcopy( self.an_file.Get('w') )
-              # data
+        # data
         for t in ['DA','MC']:
             for var in [['mlb','sum_mlb_Edge'],['met','met_pt'],['zpt','lepsZPt_Edge'],['ldr','lepsDR_Edge'],['a3d','d3D_Edge']]:
                 setattr(self,'h_lh_ana_%s_%s'%(var[0],t), self.wspace.pdf('%s_analyticalPDF_%s'%(var[0],t)))
@@ -112,13 +110,30 @@ class edgeFriends:
     #    self.args_ldr_mc = self.h_lh_ana_ldr_mc.getVariables();frame_ldrmc=self.args_ldr_mc['lepsDR_Edge'].frame(); self.h_lh_ana_ldr_mc.plotOn(frame_ldrmc)
     #    self.h_lh_ana_a3d_mc   = copy.deepcopy(self.an_file.Get('tt_mc_fit_histo_a3d_ds_cuts_of_sr_met150'  )); 
     #    self.args_a3d_mc = self.h_lh_ana_a3d_mc.getVariables();frame_a3dmc=self.args_a3d_mc['d3D_Edge'].frame(); self.h_lh_ana_a3d_mc.plotOn(frame_a3dmc)
+        ## =================
+        self.susymasslist = ['GenSusyMScan1'     , 'GenSusyMScan2'      , 'GenSusyMScan3'      , 'GenSusyMScan4'      ,
+                             'GenSusyMGluino'    , 'GenSusyMGravitino'  , 'GenSusyMStop'       , 'GenSusyMSbottom'    ,
+                             'GenSusyMStop2'     , 'GenSusyMSbottom2'   , 'GenSusyMSquark'     ,
+                             'GenSusyMNeutralino', 'GenSusyMNeutralino2', 'GenSusyMNeutralino3', 'GenSusyMNeutralino4',
+                             'GenSusyMChargino'  , 'GenSusyMChargino2']
 
-
+        self.triggerlist = ['HLT_at51'      , 'HLT_at52'       , 'HLT_at53'       , 'HLT_at55'        , 'HLT_at57'     ,
+                            'HLT_DoubleEl'  , 'HLT_el17el12_dz', 'HLT_el23el12_dz', 'HLT_ele33ele33'  ,
+                            'HLT_DoubleMu'  , 'HLT_mu17mu8'    , 'HLT_mu17mu8_dz' , 'HLT_mu17tkmu8_dz', 'HLT_mu27tkmu8',
+                            'HLT_MuEG'      , 'HLT_mu17el12'   , 'HLT_mu30ele30'  , 'HLT_mu8el17'     , 'HLT_mu8el23'  ,
+                            'HLT_pfht200'   , 'HLT_pfht250'    , 'HLT_pfht300'    , 'HLT_pfht350'     , 'HLT_pfht400'  , 
+                            'HLT_pfht475'   , 'HLT_pfht600'    , 'HLT_pfht800'    , 'HLT_pfht900'     ,
+                            'HLT_DoubleElHT', 'HLT_DoubleMuHT' , 'HLT_MuEGHT'     , 
+                            'HLT_HTJet'     , 'HLT_HTMET'      , 
+                            'HLT_SingleEl'  , 'HLT_SingleMu']
 
     def listBranches(self):
         label = self.label
         biglist = [ ("nLepTight"+label, "I"),
                     ("nJetSel"+label, "I"),
+                    ("bestMjj"+label, "F"),
+                    ("minMjj"+label, "F"),
+                    ("maxMjj"+label, "F"),
                     ("nPairLep"+label, "I"),
                     ("iLT"+label,"I",20,"nLepTight"+label), 
                     ("iJ"+label,"I",20,"nJetSel"+label), # index >= 0 if in Jet; -1-index (<0) if in DiscJet
@@ -139,6 +154,8 @@ class edgeFriends:
                     ("lepsZPt"+label, "F"),
                     ("metl1DPhi"+label, "F"),
                     ("metl2DPhi"+label, "F"),
+                    ("met"+label, "F"),
+                    ("met_phi"+label, "F"),
                     ("lepsDPhi"+label, "F"),
                     ("Lep1_pt"+label, "F"), 
                     ("Lep1_eta"+label, "F"), 
@@ -209,8 +226,16 @@ class edgeFriends:
                     ("d3D" + label, "F"),
                     ("parPt" + label, "F"),
                     ("ortPt" + label, "F"),
-                    ("dTheta" + label, "F")
+                    ("dTheta" + label, "F"),
+                    ('hbheFilterIso' +label, 'I'),
+                    ('hbheFilterNew25ns' +label, 'I'),
+                    ('Flag_eeBadScFilter' +label, 'I'),
+                    ('genWeight' +label, 'F'),
                  ]
+        for trig in self.triggerlist:
+            biglist.append( ( '{tn}{lab}'.format(lab=label, tn=trig)) )
+        for mass in self.susymasslist:
+            biglist.append( ( '{tn}{lab}'.format(lab=label, tn=mass)) )
         ## for lfloat in 'pt eta phi miniRelIso pdgId'.split():
         ##     if lfloat == 'pdgId':
         ##         biglist.append( ("Lep"+label+"_"+lfloat,"I", 10, "nPairLep"+label) )
@@ -218,10 +243,10 @@ class edgeFriends:
         ##         biglist.append( ("Lep"+label+"_"+lfloat,"F", 10, "nPairLep"+label) )
         for jfloat in "pt eta phi mass btagCSV rawPt".split():
             biglist.append( ("JetSel"+label+"_"+jfloat,"F",20,"nJetSel"+label) )
-        if self.isMC:
-            biglist.append( ("JetSel"+label+"_mcPt",     "F",20,"nJetSel"+label) )
-            biglist.append( ("JetSel"+label+"_mcFlavour","I",20,"nJetSel"+label) )
-            biglist.append( ("JetSel"+label+"_mcMatchId","I",20,"nJetSel"+label) )
+        #if self.isMC:
+        biglist.append( ("JetSel"+label+"_mcPt",     "F",20,"nJetSel"+label) )
+        biglist.append( ("JetSel"+label+"_mcFlavour","I",20,"nJetSel"+label) )
+        biglist.append( ("JetSel"+label+"_mcMatchId","I",20,"nJetSel"+label) )
         return biglist
     def __call__(self,event):
         leps  = [l for l in Collection(event,"LepGood","nLepGood")]
@@ -231,7 +256,7 @@ class edgeFriends:
         metco = [m for m in Collection(event,"metcJet","nDiscJet")]
         (met, metphi)  = event.met_pt, event.met_phi
         (met_raw, metphi_raw)  = event.met_rawPt, event.met_rawPhi
-        if self.isMC:
+        if not event.isData:
             gentaus  = [t for t in Collection(event,"genTau","ngenTau")]
             ntrue = event.nTrueInt
         ## nvtx = event.nVert
@@ -240,8 +265,21 @@ class edgeFriends:
         metp4_raw = ROOT.TLorentzVector()
         metp4_raw.SetPtEtaPhiM(met_raw,0,metphi_raw,0)
         ret = {}; jetret = {}; 
-        lepret = {}
+        lepret  = {}
+        trigret = {}
+        ret['met'] = met; ret['met_phi'] = metphi;
         
+        ## copy the triggers, susy masses and filters!!
+        for mass in self.susymasslist:
+            ret[mass] = (-1 if not hasattr(event, mass) else getattr(event, mass) )
+        for trig in self.triggerlist:
+            trigret[trig] = (-1 if not hasattr(event, trig) else getattr(event, trig) )
+
+        ret['genWeight']          = ( 1. if not hasattr(event, 'genWeight'         ) else getattr(event, 'genWeight') )
+        ret['hbheFilterIso'     ] = ( 1  if not hasattr(event, 'hbheFilterIso'     ) else int(getattr(event, 'hbheFilterIso'     )) )
+        ret['hbheFilterNew25ns' ] = ( 1  if not hasattr(event, 'hbheFilterNew25ns' ) else int(getattr(event, 'hbheFilterNew25ns' )) )
+        ret['Flag_eeBadScFilter'] = ( 1  if not hasattr(event, 'Flag_eeBadScFilter') else int(getattr(event, 'Flag_eeBadScFilter')) )
+
         #
         ### Define tight leptons
         ret["iLT"] = []; ret["nLepGood20T"] = 0
@@ -249,7 +287,7 @@ class edgeFriends:
         # ====================
         # do pileupReweighting
         # ====================
-        puWt = self.pu_dict[ntrue] if self.isMC else 1.
+        puWt = self.pu_dict[ntrue] if not event.isData else 1.
         #if puWt > 10: puWt = 10.
         ret["PileupW"] = puWt
 
@@ -317,7 +355,7 @@ class edgeFriends:
             for idx in [ret['iL1T'], ret['iL2T']]:
                 lep = leps[idx] if idx >= 0 else lepso[-1-idx]
                 minDRTau = 99.
-                if self.isMC:
+                if not event.isData:
                     for tau in gentaus:
                         tmp_dr = deltaR(lep, tau)
                         if tmp_dr < minDRTau:
@@ -373,14 +411,14 @@ class edgeFriends:
         
         for jfloat in "pt eta phi mass btagCSV rawPt".split():
             jetret[jfloat] = []
-        if self.isMC:
+        if not event.isData:
             for jmc in "mcPt mcFlavour mcMatchId".split():
                 jetret[jmc] = []
         for idx in ret["iJ"]:
             jet = jetsc[idx] if idx >= 0 else jetsd[-1-idx]
             for jfloat in "pt eta phi mass btagCSV rawPt".split():
                 jetret[jfloat].append( getattr(jet,jfloat) )
-            if self.isMC:
+            if not event.isData:
                 for jmc in "mcPt mcFlavour mcMatchId".split():
                     jetret[jmc].append( getattr(jet,jmc) )
         
@@ -400,6 +438,9 @@ class edgeFriends:
             totalRecoil = totalRecoil + jet
           ## compute mlb for the two lepton  
         ret['lepsJZB_recoil'] = totalRecoil.Pt() - ret['lepsZPt']
+        ret['bestMjj'] = self.getBestMjj(theJets)
+        ret['minMjj']  = self.getMinMjj (theJets)
+        ret['maxMjj']  = self.getMaxMjj (theJets)
          
         [wtbtag, wtbtagUp_heavy, wtbtagUp_light, wtbtagDown_heavy, wtbtagDown_light] = self.getWeightBtag(theJets)
 
@@ -457,7 +498,7 @@ class edgeFriends:
 
         ## beam halo filter list file:
         ## do this only for data
-        if not self.isMC:
+        if event.isData:
             evt_str = '%d:%d:%d'%(event.run, event.lumi, event.evt)
             if evt_str in self.beamHaloSet:
                 ret['nPairLep'] = -1
@@ -468,6 +509,7 @@ class edgeFriends:
             if evt_str in self.badMuonTrackTaggerSet:
                 ret['nPairLep'] = -1
         ## ====== done with beam halo and other filters check
+
         
         ## get the SR id which is 1xx for central and 2xx for forward. the 10 digit is the number of 
         ## b-tags and the signle digit is the mll region going from 1-5
@@ -539,6 +581,8 @@ class edgeFriends:
         #    fullret["Lep%s_%s" % (self.label,k)] = v
         for k,v in lepret.iteritems(): 
             fullret[k] = v
+        for k,v in trigret.iteritems(): 
+            fullret[k+self.label] = v
         return fullret
 
     def getMll_JZB(self, l1, l2, met, met_raw):
@@ -589,6 +633,49 @@ class edgeFriends:
             etaid = 2
 
         return (100*etaid + 10*nb + mllid)
+
+    def getBestMjj(self, jetsel):
+        if len(jetsel) < 2: return -99.
+        bestmjj = 1e6
+        for jeti in jetsel:
+            for jetj in jetsel:
+                if jeti == jetj: continue
+                jet1 = ROOT.TLorentzVector()
+                jet1.SetPtEtaPhiM(jeti.pt, jeti.eta, jeti.phi, jeti.mass)
+                jet2 = ROOT.TLorentzVector()
+                jet2.SetPtEtaPhiM(jetj.pt, jetj.eta, jetj.phi, jetj.mass)
+                dijetmass = (jet1+jet2).M()
+                if abs(dijetmass - 80.385) < abs(bestmjj - 80.385):
+                    bestmjj = dijetmass
+        return bestmjj
+    def getMinMjj(self, jetsel):
+        if len(jetsel) < 2: return -99.
+        minmjj = 1e6
+        for jeti in jetsel:
+            for jetj in jetsel:
+                if jeti == jetj: continue
+                jet1 = ROOT.TLorentzVector()
+                jet1.SetPtEtaPhiM(jeti.pt, jeti.eta, jeti.phi, jeti.mass)
+                jet2 = ROOT.TLorentzVector()
+                jet2.SetPtEtaPhiM(jetj.pt, jetj.eta, jetj.phi, jetj.mass)
+                dijetmass = (jet1+jet2).M()
+                if dijetmass < minmjj:
+                    minmjj = dijetmass
+        return minmjj
+    def getMaxMjj(self, jetsel):
+        if len(jetsel) < 2: return -99.
+        maxmjj = -99.
+        for jeti in jetsel:
+            for jetj in jetsel:
+                if jeti == jetj: continue
+                jet1 = ROOT.TLorentzVector()
+                jet1.SetPtEtaPhiM(jeti.pt, jeti.eta, jeti.phi, jeti.mass)
+                jet2 = ROOT.TLorentzVector()
+                jet2.SetPtEtaPhiM(jetj.pt, jetj.eta, jetj.phi, jetj.mass)
+                dijetmass = (jet1+jet2).M()
+                if dijetmass > maxmjj:
+                    maxmjj = dijetmass
+        return maxmjj
 
    
     #############Pablin
@@ -651,7 +738,7 @@ class edgeFriends:
         for jet in jets:
         
             csv = jet.btagCSV
-            mcFlavor = jet.hadronFlavour
+            mcFlavor = (jet.hadronFlavour if hasattr(jet, 'hadronFlavour') else jet.mcFlavour)
             eta = jet.eta
             pt = jet.pt
 
