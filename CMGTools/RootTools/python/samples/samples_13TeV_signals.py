@@ -45,6 +45,11 @@ SignalEXO = [ ZprimeToTT_M2000_W200, ZprimeToTT_M2000_W20, ZprimeToTT_M2000_W600
 #
 #SignalEXO_50ns = SignalEX0_50ns + [ BulkGravToZZToZlepZhad_narrow_M2000, RSGravToZZ_kMpl01_M2000 ]
 
+
+SMS_T6bbllslepton_mSbottom400To575_mLSP150To550 = kreator.makeMCComponent("SMS_T6bbllslepton_mSbottom400To575_mLSP150To550", "/SMS-T6bbllslepton_mSbottom-400To575_mLSP-150To550_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISpring15MiniAODv2-FastAsympt25ns_74X_mcRun2_asymptotic_v2-v1/MINIAODSIM", "CMS", ".*root", 1.0, useAAA=True)
+SMS_T6bbllslepton_mSbottom600To775_mLSP150To725 = kreator.makeMCComponent("SMS_T6bbllslepton_mSbottom600To775_mLSP150To725", "/SMS-T6bbllslepton_mSbottom-600To775_mLSP-150To725_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISpring15MiniAODv2-FastAsympt25ns_74X_mcRun2_asymptotic_v2-v1/MINIAODSIM", "CMS", ".*root", 1.0, useAAA=True)
+SMS_T6bbllslepton_mSbottom800To950_mLSP150To900 = kreator.makeMCComponent("SMS_T6bbllslepton_mSbottom800To950_mLSP150To900", "/SMS-T6bbllslepton_mSbottom-800To950_mLSP-150To900_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISpring15MiniAODv2-FastAsympt25ns_74X_mcRun2_asymptotic_v2-v1/MINIAODSIM", "CMS", ".*root", 1.0, useAAA=True)
+
 SMS_T1bbbb_mGluino1000_mLSP900 = kreator.makeMCComponent("SMS_T1bbbb_mGluino1000_mLSP900", "/SMS-T1bbbb_mGluino-1000_mLSP-900_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISpring15DR74-Asympt25ns_MCRUN2_74_V9-v1/MINIAODSIM", "CMS", ".*root", 0.325388, useAAA=True)
 SMS_T1bbbb_mGluino1500_mLSP100 = kreator.makeMCComponent("SMS_T1bbbb_mGluino1500_mLSP100", "/SMS-T1bbbb_mGluino-1500_mLSP-100_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISpring15DR74-Asympt25ns_MCRUN2_74_V9-v1/MINIAODSIM", "CMS", ".*root", 0.0141903, useAAA=True)
 SMS_T1qqqq_mGluino1000_mLSP800 = kreator.makeMCComponent("SMS_T1qqqq_mGluino1000_mLSP800", "/SMS-T1qqqq_mGluino-1000_mLSP-800_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISpring15DR74-Asympt25ns_MCRUN2_74_V9-v1/MINIAODSIM", "CMS", ".*root", 0.325388, useAAA=True)
