@@ -18,6 +18,8 @@ import copy
 import math
 class edgeFriends:
     def __init__(self,label,tightLeptonSel,cleanJet):
+
+
         self.label = "" if (label in ["",None]) else ("_"+label)
         self.tightLeptonSel = tightLeptonSel
         self.cleanJet = cleanJet
@@ -156,6 +158,7 @@ class edgeFriends:
                     ("metl2DPhi"+label, "F"),
                     ("met"+label, "F"),
                     ("met_phi"+label, "F"),
+                    ("genHT"+label, "F"),
                     ("lepsDPhi"+label, "F"),
                     ("Lep1_pt"+label, "F"), 
                     ("Lep1_eta"+label, "F"), 
@@ -254,6 +257,7 @@ class edgeFriends:
         lepso = [l for l in Collection(event,"LepOther","nLepOther")]
         jetsc = [j for j in Collection(event,"Jet","nJet")]
         jetsd = [j for j in Collection(event,"DiscJet","nDiscJet")]
+        genpar = [j for j in Collection(event,"GenPart","nGenPart")]
         metco = [m for m in Collection(event,"metcJet","nDiscJet")]
         (met, metphi)  = event.met_pt, event.met_phi
         (met_raw, metphi_raw)  = event.met_rawPt, event.met_rawPhi
@@ -269,7 +273,13 @@ class edgeFriends:
         lepret  = {}
         trigret = {}
         ret['met'] = met; ret['met_phi'] = metphi;
-        
+
+        genHT = 0
+        for j in genpar:
+            if j.status == 23 and abs(j.pdgId) in [1, 2, 3, 4, 5, 6, 21]:
+                genHT = genHT + j.pt
+        ret['genHT'] = genHT
+
         ## copy the triggers, susy masses and filters!!
         for mass in self.susymasslist:
             ret[mass] = (-1 if not hasattr(event, mass) else getattr(event, mass) )
@@ -442,8 +452,13 @@ class edgeFriends:
         ret['bestMjj'] = self.getBestMjj(theJets)
         ret['minMjj']  = self.getMinMjj (theJets)
         ret['maxMjj']  = self.getMaxMjj (theJets)
+
+        isSMS = False
+        if hasattr(event, "GenSusyMNeutralino_Edge"):
+            if event.GenSusyMNeutralino_Edge > -1: 
+                isSMS = True
          
-        [wtbtag, wtbtagUp_heavy, wtbtagUp_light, wtbtagDown_heavy, wtbtagDown_light] = self.getWeightBtag(theJets)
+        [wtbtag, wtbtagUp_heavy, wtbtagUp_light, wtbtagDown_heavy, wtbtagDown_light] = self.getWeightBtag(theJets, isSMS)
 
         ret['weight_btagsf'] = wtbtag
         ret['weight_btagsf_heavy_UP'] = wtbtagUp_heavy
@@ -685,7 +700,7 @@ class edgeFriends:
 
    
     #############Pablin
-    def get_SF_btag(self, pt, eta, mcFlavour):
+    def get_SF_btag(self, pt, eta, mcFlavour, isSMS):
 
        flavour = 2
        if abs(mcFlavour) == 5: flavour = 0
@@ -698,16 +713,24 @@ class edgeFriends:
           SF = self.reader_light.eval(flavour,eta_cutoff, pt_cutoff);
           SFup = self.reader_light_UP.eval(flavour,eta_cutoff, pt_cutoff);
           SFdown = self.reader_light_DN.eval(flavour,eta_cutoff, pt_cutoff);
-          SFcorr = self.reader_lightFASTSIM.eval(flavour,eta_cutoff, pt_cutoff);
-          SFupcorr = self.reader_light_UPFASTSIM.eval(flavour,eta_cutoff, pt_cutoff);
-          SFdowncorr = self.reader_light_DNFASTSIM.eval(flavour,eta_cutoff, pt_cutoff);
+          SFcorr = 1.0
+          SFupcorr = 1.0
+          SFdowncorr = 1.0
+          if isSMS == True:
+              SFcorr = self.reader_lightFASTSIM.eval(flavour,eta_cutoff, pt_cutoff);
+              SFupcorr = self.reader_light_UPFASTSIM.eval(flavour,eta_cutoff, pt_cutoff);
+              SFdowncorr = self.reader_light_DNFASTSIM.eval(flavour,eta_cutoff, pt_cutoff);
        else:
           SF = self.reader_heavy.eval(flavour,eta_cutoff, pt_cutoff)
           SFup  = self.reader_heavy_UP.eval(flavour,eta_cutoff, pt_cutoff)
           SFdown = self.reader_heavy_DN.eval(flavour,eta_cutoff, pt_cutoff)
-          SFcorr = self.reader_heavyFASTSIM.eval(flavour,eta_cutoff, pt_cutoff)
-          SFupcorr  = self.reader_heavy_UPFASTSIM.eval(flavour,eta_cutoff, pt_cutoff)
-          SFdowncorr = self.reader_heavy_DNFASTSIM.eval(flavour,eta_cutoff, pt_cutoff)
+          SFcorr = 1.0
+          SFupcorr = 1.0
+          SFdowncorr = 1.0
+          if isSMS == True:
+              SFcorr = self.reader_heavyFASTSIM.eval(flavour,eta_cutoff, pt_cutoff)
+              SFupcorr  = self.reader_heavy_UPFASTSIM.eval(flavour,eta_cutoff, pt_cutoff)
+              SFdowncorr = self.reader_heavy_DNFASTSIM.eval(flavour,eta_cutoff, pt_cutoff)
 
        return [SF*SFcorr, SFup*SFupcorr, SFdown*SFdowncorr]
 
@@ -730,7 +753,7 @@ class edgeFriends:
        return h.GetBinContent(binx,biny)
 
 
-    def getWeightBtag(self, jets):
+    def getWeightBtag(self, jets, isSMS):
 
         mcTag = 1.
         mcNoTag = 1.
@@ -753,7 +776,7 @@ class edgeFriends:
             eff = self.getBtagEffFromFile(pt, eta, mcFlavor)
 
             istag = csv > 0.890 and eta < 2.5 and pt > 20
-            SF = self.get_SF_btag(pt, eta, mcFlavor)
+            SF = self.get_SF_btag(pt, eta, mcFlavor, isSMS)
             if(istag):
                  mcTag = mcTag * eff
                  dataTag = dataTag * eff * SF[0]
