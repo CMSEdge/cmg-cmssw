@@ -176,7 +176,8 @@ class edgeFriends:
                     ("min_mlb2"+label, "F"),
                     ("sum_mlb"+label, "F"), 
                     ("st"+label,"F"), 
-                    ("srID"+label, "I"), 
+                    ("srID"+label, "I"),
+                    ("srIDJZB"+label, "I"), 
                     ("mt2"+label, "F"),
                     ("lh_zpt_data"+label, "F"),
                     ("lh_a3d_data"+label, "F"),
@@ -515,7 +516,12 @@ class edgeFriends:
         ## b-tags and the signle digit is the mll region going from 1-5
         isBasicSREvent = (ret['nPairLep'] > 0 and ret["lepsDR"] > 0.3 and lepret["Lep1_pt"+self.label] > 20. and lepret["Lep2_pt"+self.label] > 20. and ret['lepsMll'] > 20.)
         isBasicSREvent = isBasicSREvent * (abs(lepret["Lep1_eta"+self.label] - 1.5) > 0.1 and abs(lepret["Lep2_eta"+self.label] - 1.5) > 0.1)
+        isBasicSREventJZB = isBasicSREvent * ( ret['lepsJZB_raw'] > 100. and ret['nJetSel'] >= 2) 
         isBasicSREvent = isBasicSREvent * ((met > 150 and ret['nJetSel'] >= 2 ) or (met > 100. and ret['nJetSel'] >=3))
+        if isBasicSREventJZB:
+            srIDJZB = self.getSRID(ret['lepsMll'], lepret["Lep1_eta"+self.label], lepret["Lep2_eta"+self.label], ret["nBJetMedium35"])
+            ret["srIDJZB"] = srIDJZB
+        else: ret["srIDJZB"] = -99
         if isBasicSREvent:
             srID = self.getSRID(ret['lepsMll'], lepret["Lep1_eta"+self.label], lepret["Lep2_eta"+self.label], ret["nBJetMedium35"])
             ret["srID"] = srID
